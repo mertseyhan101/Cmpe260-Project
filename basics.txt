@@ -1,0 +1,34 @@
+(* basics.txt
+   Demonstrates: variable declarations, arithmetic, comparisons, print.
+
+   Expected output:
+     15
+     5
+     2
+     true
+     false
+     true
+     true
+     13
+*)
+
+(* simple arithmetic *)
+let a = 10;
+let b = 5;
+
+print(a + b);
+print(a - b);
+print(a / b);
+
+(* comparisons return booleans *)
+print(a > b);
+print(a == b);
+print(a != b);
+
+(* operator precedence: * binds tighter than + *)
+print(a < b or b > 0);
+
+(* negative numbers via unary minus *)
+let c = -3;
+let d = a - c;
+print(d);

@@ -1,0 +1,209 @@
+Melang — AST Design Document
+CmpE 260, Spring 2026 — Project 1
+Mert Yilmaz, 2024XXXXXX
+Metehan Yilmaz, 2024XXXXXX
+
+======================================================
+Overview
+======================================================
+
+Every node in Melang's AST is a plain Python class. We deliberately
+kept them lightweight — no shared base class, no visitor boilerplate.
+Each node stores only the fields it actually needs, and every class
+has a __repr__ so printing the tree during debugging is actually
+readable.
+
+The tree is produced by the Parser and consumed by the Interpreter's
+eval_node() dispatcher, which routes each node to the correct handler
+via the naming convention  eval_<ClassName>.
+
+======================================================
+Node Types
+======================================================
+
+── LITERALS ──────────────────────────────────────────
+
+Node          Fields              Description
+-----------   -----------------   ----------------------------------------
+NumberLit     value: int          An integer literal. e.g. 42, 0, 100.
+                                  Negative numbers are NOT stored here —
+                                  -3 is parsed as UnaryOp('-', NumberLit(3)).
+
+BoolLit       value: bool         A boolean literal. true → True, false → False.
+                                  The lexer converts the keyword directly to
+                                  a Python bool so the evaluator never sees
+                                  the raw string.
+
+StringLit     value: str          A double-quoted string literal (bonus B1).
+                                  Escape sequences (\n \t \\ \") are resolved
+                                  by the lexer, so by the time this node exists
+                                  the value is already a clean Python string.
+
+ListLit       elements: list      A list literal [e1, e2, ...] (bonus B3).
+              of AST nodes        Elements can be any expression — lists are
+                                  heterogeneous. The empty list [] has
+                                  elements = [].
+
+── NAMES ─────────────────────────────────────────────
+
+Node          Fields              Description
+-----------   -----------------   ----------------------------------------
+Identifier    name: str           A variable reference. Evaluation looks up
+                                  the name in the current environment chain.
+                                  e.g. x, my_var, factorial.
+
+── EXPRESSIONS ───────────────────────────────────────
+
+Node          Fields              Description
+-----------   -----------------   ----------------------------------------
+BinOp         op: str             A binary operation. op is one of:
+              left: AST node        arithmetic:  + - * /
+              right: AST node       comparison:  == != < > <= >=
+                                    logical:     and or
+                                  left and right are any expression nodes.
+                                  Operator precedence is encoded in the
+                                  parser, not in this node.
+
+UnaryOp       op: str             A unary operation. op is one of:
+              operand: AST node     '-'  (integer negation)
+                                    'not' (boolean negation)
+
+IfExpr        cond: AST node      Conditional expression. Both branches are
+              then_block: Block   mandatory (else is required by the spec).
+              else_block: Block   Evaluates cond; if true evaluates then_block,
+                                  otherwise else_block. The result is the
+                                  value of whichever branch ran.
+                                  Note: if does NOT create a new scope frame.
+
+FunExpr       params: list[str]   Anonymous function definition.
+              body: Block         params is a list of parameter name strings.
+                                  body is a Block node (see below).
+                                  Evaluating this node produces a Closure
+                                  value that captures the current environment.
+
+CallExpr      func: AST node      Function call. func evaluates to a Closure
+              args: list of       (or a built-in sentinel string).
+              AST nodes           args are evaluated left-to-right before
+                                  the call (call-by-value).
+                                  Also used for built-in calls like
+                                  length(...) and append(...) — the parser
+                                  desugars these into CallExpr nodes with
+                                  special Identifier names (__length__,
+                                  __append__).
+
+IndexExpr     lst: AST node       List index expression: lst[index] (bonus B3).
+              index: AST node     lst must evaluate to a list, index to an
+                                  integer. Zero-based. Out-of-range is a
+                                  runtime error.
+
+── STATEMENTS ────────────────────────────────────────
+
+Node          Fields              Description
+-----------   -----------------   ----------------------------------------
+LetStmt       name: str           Variable declaration. Introduces a new
+              value: AST node     binding in the current environment frame.
+                                  Re-declaring the same name in the same
+                                  scope shadows the previous binding.
+                                  Implementation uses a placeholder trick
+                                  to support recursive function definitions:
+                                  the name is bound to None first, then the
+                                  value expression is evaluated (so closures
+                                  can capture the frame), then the binding
+                                  is overwritten with the real value.
+
+AssignStmt    name: str           Assignment to an existing variable.
+              value: AST node     Walks up the environment chain to find
+                                  the nearest frame where name is bound,
+                                  then updates it there. Assigning to an
+                                  unbound name is a runtime error.
+                                  This is how closures mutate captured vars.
+
+PrintStmt     expr: AST node      Built-in print statement (not a function).
+                                  Evaluates expr and writes the formatted
+                                  result to stdout, followed by a newline.
+                                  print is a reserved keyword.
+
+WhileStmt     cond: AST node      While loop (bonus B2). Repeatedly evaluates
+              body: Block         cond; while true, evaluates body.
+                                  While is a statement, not an expression —
+                                  it produces no value.
+
+── STRUCTURE ─────────────────────────────────────────
+
+Node          Fields              Description
+-----------   -----------------   ----------------------------------------
+Block         stmts: list of      A sequence of semicolon-terminated
+              AST nodes           statements, optionally followed by a
+              expr: AST node      final expression (no semicolon).
+              (may be None)       The value of the block is the value of
+                                  that final expression, or None if there
+                                  is no trailing expression.
+                                  Used for: function bodies, if branches,
+                                  while bodies, and the top-level program.
+
+======================================================
+Runtime Values (not AST nodes, but related)
+======================================================
+
+These are the values that flow through the interpreter at runtime.
+They are not part of the AST, but documenting them here makes the
+picture complete.
+
+Value         Python type         Notes
+-----------   -----------------   ----------------------------------------
+Integer       int                 Plain Python int.
+Boolean       bool                Python bool. Importantly, bool is a subclass
+                                  of int in Python, so type checks always test
+                                  bool before int.
+String        str                 Plain Python str (bonus B1).
+List          list                Plain Python list, mutated in place by
+                                  append() (bonus B3).
+Function      Closure             See below. A first-class value that can be
+                                  stored in variables and passed as arguments.
+
+Closure       params: list[str]   The runtime representation of a function.
+              body: Block         Stores the parameter names, the body AST,
+              env: environment    and the *defining* environment (used for
+                                  lexical scoping). For dynamic scoping the
+                                  env field is ignored at call time and the
+                                  call-site environment is used instead.
+
+======================================================
+Example: AST for  let add = fun(a, b) -> a + b end; add(3, 4)
+======================================================
+
+Block(
+  stmts=[
+    LetStmt(
+      name='add',
+      value=FunExpr(
+        params=['a', 'b'],
+        body=Block(
+          stmts=[],
+          expr=BinOp(
+            op='+',
+            left=Identifier('a'),
+            right=Identifier('b')
+          )
+        )
+      )
+    )
+  ],
+  expr=CallExpr(
+    func=Identifier('add'),
+    args=[NumberLit(3), NumberLit(4)]
+  )
+)
+
+======================================================
+Example: AST for  if x > 0 then x else 0 - x end
+======================================================
+
+IfExpr(
+  cond=BinOp('>', Identifier('x'), NumberLit(0)),
+  then_block=Block(stmts=[], expr=Identifier('x')),
+  else_block=Block(
+    stmts=[],
+    expr=BinOp('-', NumberLit(0), Identifier('x'))
+  )
+)

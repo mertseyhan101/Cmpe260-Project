@@ -1,0 +1,260 @@
+Melang Grammar (BNF)
+CmpE 260 - Spring 2026, Project 1
+Mert Yilmaz, 2024XXXXXX
+Metehan Yilmaz, 2024XXXXXX
+
+------------------------------------------------------------------------
+Notes before the grammar
+------------------------------------------------------------------------
+
+Standard BNF notation is used throughout. Conventions:
+
+  ::=          production rule
+  |            alternative
+  < >          non-terminal
+  " "          literal terminal (keyword or symbol)
+  [ ]          optional (zero or one time)
+  { }          zero or more repetitions
+  ( )          grouping within a rule
+
+Keywords that are reserved and cannot be used as identifiers:
+  let, fun, if, then, else, end, and, or, not, true, false, print,
+  while, do, length, append
+
+(while, do, length, append are reserved for the bonus features but
+they are reserved regardless of whether the bonus is implemented)
+
+Operator precedence is encoded directly in the grammar by splitting
+expressions into multiple levels, each level calling the next.
+This is the standard recursive descent approach.
+
+  Lowest  ::  or
+          ::  and
+          ::  == != < > <= >=   (non-associative -- a==b==c is an error)
+          ::  + -               (left associative)
+          ::  * /               (left associative)
+          ::  not, unary -      (prefix)
+  Highest ::  function call, list index   (left associative)
+
+The "end" keyword closes both "if" and "fun" blocks, which
+eliminates the classic dangling-else ambiguity entirely.
+
+------------------------------------------------------------------------
+Top-level structure
+------------------------------------------------------------------------
+
+<program> ::= <block>
+
+<block>   ::= { <statement> ";" } [ <expr> ]
+
+    A block is a sequence of semicolon-terminated statements,
+    optionally followed by a final expression without a semicolon.
+    The value of the block is that final expression's value.
+    If there is no trailing expression the block has no value
+    (which is fine for the top-level program or a while body,
+    but a function that does this returns an undefined result).
+
+------------------------------------------------------------------------
+Statements
+------------------------------------------------------------------------
+
+<statement> ::= <let-stmt>
+              | <assign-stmt>
+              | <print-stmt>
+              | <while-stmt>
+              | <expr>
+
+<let-stmt>    ::= "let" <identifier> "=" <expr>
+
+    Introduces a new binding in the current environment frame.
+    Writing let x = 1; let x = 2; in the same scope is allowed --
+    the second let shadows the first.
+
+<assign-stmt> ::= <identifier> "=" <expr>
+
+    Updates an existing binding. Walks up the environment chain
+    to find where the name is bound and modifies it there.
+    Assigning to an unbound name is a runtime error.
+
+    The parser distinguishes let-stmt from assign-stmt by checking
+    whether the leading token is "let". Assignment is distinguished
+    from equality (==) by peeking one token ahead in the token stream.
+
+<print-stmt>  ::= "print" "(" <expr> ")"
+
+    print is a keyword, not a function. You cannot do let p = print
+    or pass it as an argument.
+
+<while-stmt>  ::= "while" <expr> "do" <block> "end"
+
+    (Bonus B2) A looping statement. The condition must evaluate to
+    a boolean. while is a statement, not an expression -- it has no
+    value and must be followed by ";" when used inside a block.
+
+------------------------------------------------------------------------
+Expressions
+------------------------------------------------------------------------
+
+Expressions are split into levels to encode precedence.
+Each level falls through to the next if its operator is not present.
+
+<expr>         ::= <or-expr>
+
+<or-expr>      ::= <and-expr> { "or" <and-expr> }
+
+<and-expr>     ::= <cmp-expr> { "and" <cmp-expr> }
+
+<cmp-expr>     ::= <add-expr> [ <cmp-op> <add-expr> ]
+
+    Comparison operators are non-associative: only one comparison
+    per expression. a == b == c is a syntax error.
+
+<cmp-op>       ::= "==" | "!=" | "<" | ">" | "<=" | ">="
+
+<add-expr>     ::= <mul-expr> { <add-op> <mul-expr> }
+
+<add-op>       ::= "+" | "-"
+
+<mul-expr>     ::= <unary-expr> { <mul-op> <unary-expr> }
+
+<mul-op>       ::= "*" | "/"
+
+<unary-expr>   ::= "not" <unary-expr>
+                 | "-" <unary-expr>
+                 | <call-expr>
+
+    Unary operators are right-associative (by recursion).
+    not not true is valid and equals true.
+    - -3 is valid and equals 3.
+
+<call-expr>    ::= <primary> { <call-suffix> }
+
+<call-suffix>  ::= "(" [ <arg-list> ] ")"
+                 | "[" <expr> "]"
+
+    Function calls and list indexing are both left-associative
+    at this highest precedence level.
+    f(x)(y) means (f(x))(y).
+    lst[0][1] would mean (lst[0])[1] (a list of lists).
+
+<arg-list>     ::= <expr> { "," <expr> }
+
+------------------------------------------------------------------------
+Primary expressions
+------------------------------------------------------------------------
+
+<primary> ::= <integer-literal>
+            | <bool-literal>
+            | <string-literal>
+            | <list-literal>
+            | <identifier>
+            | <if-expr>
+            | <fun-expr>
+            | <length-call>
+            | <append-call>
+            | "(" <expr> ")"
+
+<if-expr>  ::= "if" <expr> "then" <block> "else" <block> "end"
+
+    if is an expression, not a statement. It produces a value.
+    The else branch is mandatory -- the expression must always
+    have a value regardless of the condition.
+    if branches do NOT create new environment frames. A let
+    inside an if branch binds in the enclosing scope.
+
+<fun-expr> ::= "fun" "(" [ <param-list> ] ")" "->" <block> "end"
+
+    Anonymous function definition. The result is a closure that
+    captures the current environment (for lexical scoping).
+    Zero-argument functions are allowed: fun() -> 42 end.
+
+<param-list>   ::= <identifier> { "," <identifier> }
+
+<length-call>  ::= "length" "(" <expr> ")"
+
+    (Bonus B1/B3) Built-in. Returns the number of characters in a
+    string or the number of elements in a list.
+
+<append-call>  ::= "append" "(" <expr> "," <expr> ")"
+
+    (Bonus B3) Built-in. Appends an element to a list in place
+    and returns the (now longer) list.
+
+------------------------------------------------------------------------
+Literals
+------------------------------------------------------------------------
+
+<integer-literal> ::= <digit> { <digit> }
+
+    Only non-negative integer literals exist. Negative numbers
+    are expressed as unary negation: -3 is UnaryOp('-', 3).
+
+<bool-literal>    ::= "true" | "false"
+
+<string-literal>  ::= '"' { <string-char> } '"'
+
+    (Bonus B1) Double-quoted. Supported escape sequences:
+      \n   newline
+      \t   tab
+      \\   backslash
+      \"   double quote
+
+<list-literal>    ::= "[" [ <expr> { "," <expr> } ] "]"
+
+    (Bonus B3) Zero or more expressions separated by commas.
+    The empty list is [].
+
+------------------------------------------------------------------------
+Lexical rules
+------------------------------------------------------------------------
+
+<identifier>  ::= <letter> { <letter> | <digit> | "_" }
+
+    Must start with a letter. Cannot be a reserved keyword.
+
+<letter>      ::= "a" | ... | "z" | "A" | ... | "Z"
+
+<digit>       ::= "0" | ... | "9"
+
+<comment>     ::= "(*" { <any-char> } "*)"
+
+    Block comments. Nesting is not supported.
+    A comment can appear anywhere whitespace is allowed.
+
+<whitespace>  ::= " " | "\t" | "\n" | "\r"
+
+    Whitespace is not significant except as a token separator.
+
+------------------------------------------------------------------------
+A note on ambiguity
+------------------------------------------------------------------------
+
+Two potential ambiguity issues arose during the design:
+
+1. Assignment vs. equality
+   When the parser sees  x = ...  it could be an assignment (x = expr)
+   or the start of a comparison (x == ...). This is resolved by peeking
+   one token ahead: if the next token is "=" (single) it is assignment,
+   if it is "==" it is a comparison expression. This is unambiguous
+   because "=" and "==" are distinct tokens produced by the lexer.
+
+2. Dangling else
+   In languages like C, "if A then if B then x else y" is ambiguous --
+   does the else belong to the outer or inner if? Melang avoids this
+   entirely because every if block is explicitly closed by "end".
+   There is no dangling else problem.
+
+------------------------------------------------------------------------
+Summary table: operator precedence (lowest to highest)
+------------------------------------------------------------------------
+
+Level   Operator(s)              Associativity
+-----   -----------------------  ----------------
+1       or                       left
+2       and                      left
+3       == != < > <= >=          non-associative
+4       + -                      left
+5       * /                      left
+6       not, unary -             prefix (right)
+7       function call, lst[i]    left
+

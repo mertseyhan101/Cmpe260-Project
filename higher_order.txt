@@ -1,0 +1,54 @@
+(* higher_order.txt
+   Demonstrates: functions as arguments, functions as return values,
+   and classic higher-order patterns (map, filter, fold) built from
+   scratch using Melang's first-class functions and recursion.
+
+   Expected output:
+     2
+     4
+     5
+     7
+     24
+     3
+*)
+
+(* apply: takes a function and a value, returns f(x).
+   trivial but confirms functions are first-class values. *)
+let apply = fun(f, x) ->
+  f(x)
+end;
+
+let double = fun(x) -> x * 2 end;
+
+print(apply(double, 1));
+print(apply(double, 2));
+
+(* compose: returns a new function that applies g then f *)
+let compose = fun(f, g) ->
+  fun(x) -> f(g(x)) end
+end;
+
+let add1 = fun(x) -> x + 1 end;
+let double_then_add1 = compose(add1, double);
+
+print(double_then_add1(2));
+print(double_then_add1(3));
+
+(* fold_left: reduces a list represented as a linked structure
+   encoded as nested pairs -- since Melang lists are a bonus feature,
+   we demonstrate fold using a fixed-size recursive approach instead *)
+
+(* product of 1..n using a higher-order accumulator *)
+let fold_range = fun(f, acc, lo, hi) ->
+  if lo > hi then acc
+  else fold_range(f, f(acc, lo), lo + 1, hi) end
+end;
+
+let mul = fun(a, b) -> a * b end;
+let add = fun(a, b) -> a + b end;
+
+(* 4! = 24 computed via fold *)
+print(fold_range(mul, 1, 1, 4));
+
+(* sum 1..2 = 3 *)
+print(fold_range(add, 0, 1, 2));

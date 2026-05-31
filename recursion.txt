@@ -1,0 +1,32 @@
+(* recursion.txt
+   Demonstrates: recursive function definitions, base cases, accumulation.
+
+   Expected output:
+     120
+     55
+     6
+*)
+
+(* factorial: classic base-case recursion *)
+let factorial = fun(n) ->
+  if n <= 1 then 1
+  else n * factorial(n - 1) end
+end;
+
+print(factorial(5));
+
+(* fibonacci: two recursive calls per step *)
+let fib = fun(n) ->
+  if n <= 1 then n
+  else fib(n - 1) + fib(n - 2) end
+end;
+
+print(fib(10));
+
+(* gcd: Euclidean algorithm *)
+let gcd = fun(a, b) ->
+  if b == 0 then a
+  else gcd(b, a - b * (a / b)) end
+end;
+
+print(gcd(48, 18));

@@ -1,0 +1,42 @@
+(* scope.txt
+   Demonstrates: lexical (static) scoping in Melang.
+
+   Under lexical scoping, a function resolves free variables in the
+   environment where it was *defined*, not where it is *called*.
+
+   The program below shows this by defining f in a scope where x = 1,
+   then calling f from a scope where a different x = 99 exists.
+   Under lexical scoping f still sees x = 1.
+
+   Run with:  python interpreter.py --scope static  scope.txt
+   Expected output:
+     11
+     11
+
+   Run with:  python interpreter.py --scope dynamic scope.txt
+   Expected output:
+     109
+     109
+*)
+
+let x = 1;
+
+let f = fun(a) ->
+  a + x
+end;
+
+(* call f from a nested scope that introduces a local x = 99.
+   lexical:  f was defined where x = 1, so f(10) = 10 + 1 = 11
+   dynamic:  f is called inside call_with_x where x = 99,
+             so f(10) = 10 + 99 = 109 *)
+
+let call_with_x = fun(newx) ->
+  let x = newx;
+  f(10)
+end;
+
+print(call_with_x(99));
+
+(* second call: same result because the closure always uses its
+   defining environment under lexical scoping *)
+print(call_with_x(99));

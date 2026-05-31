@@ -1,0 +1,45 @@
+(* closures.txt
+   Demonstrates: functions returning functions, captured variables,
+   and mutation of captured state across multiple calls.
+
+   Expected output:
+     8
+     15
+     1
+     2
+     3
+     4
+     10
+*)
+
+(* make_adder returns a function that closes over x.
+   Each call to make_adder produces an independent closure. *)
+let make_adder = fun(x) ->
+  fun(y) -> x + y end
+end;
+
+let add5 = make_adder(5);
+let add12 = make_adder(12);
+
+print(add5(3));
+print(add12(3));
+
+(* counter: the closure captures and mutates count across calls.
+   Each call to make_counter produces its own independent count. *)
+let make_counter = fun(start) ->
+  let count = start;
+  fun() ->
+    count = count + 1;
+    count
+  end
+end;
+
+let c = make_counter(0);
+print(c());
+print(c());
+print(c());
+
+(* two independent counters do not interfere *)
+let c2 = make_counter(9);
+print(c());
+print(c2());
