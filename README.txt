@@ -3,8 +3,8 @@ Melang Interpreter
 
 Authors
 -------
-Mert Yilmaz       - 2024XXXXXX
-Metehan Yilmaz    - 2024XXXXXX
+Mert Seyhan       - 2023400213
+Metehan Sarıkaya    - 2023400111
 
 The name Melang comes from our first names (Mert + Metehan) plus "lang".
 
