@@ -1,8 +1,8 @@
 # Mert Seyhan, 2023400213
-# Metehan Seyhan, 2023400111
+# Metehan Sarıkaya, 2023400111
 
 # Melang Interpreter
-# CmpE 260 - Spring 2026, Project 1
+# CmpE 260 - Spring 2026, Project 
 #
 # We built this from scratch - no parser libraries.
 # The language is called Melang (Me(rt) + Me(tehan) + lang).
@@ -10,6 +10,9 @@
 # and a bunch of other stuff we had to figure out the hard way.
 
 import sys
+import math
+
+_PLACEHOLDER = object()
 
 # ─────────────────────────────────────────────
 #  TOKEN TYPES
@@ -148,8 +151,10 @@ class Lexer:
     def skip_block_comment(self):
         # We handle block comments. Since nesting is not required by the spec,
         # we just advance until we find the closing sequence '*)'.
-        self.advance()
-        self.advance()
+        
+        # '(' is already consumed in tokenize(), so we just consume '*' here
+        self.advance()  
+        
         while self.pos < len(self.source):
             # We check if the current and next characters form the closing tag.
             if self.current() == '*' and self.peek() == ')':
@@ -159,7 +164,7 @@ class Lexer:
             self.advance()
         # If we reach the end of the file without closing the comment, we throw an error.
         raise LexError(f"Unterminated block comment starting around line {self.line}")
-
+    
     def read_number(self):
         # We read consecutive digits and group them to form an integer.
         start_line, start_col = self.line, self.col
@@ -839,7 +844,7 @@ class Interpreter:
         elif type(node) == LetStmt:
             # We first add a dummy placeholder string into the environment.
             # This helps us support recursive functions easily without issues.
-            add_var_to_env(node.name, "DUMMY_PLACEHOLDER", env)
+            add_var_to_env(node.name, _PLACEHOLDER, env)
             
             # Now we evaluate the assigned expression safely.
             evaluated_value = self.eval_node(node.value, env)
@@ -977,7 +982,9 @@ class Interpreter:
                 if left_val == True:
                     return True
                 else:
-                    return self.eval_node(node.right, env)
+                    right_val = self.eval_node(node.right, env)
+                    self.check_boolean_type(right_val, 'or')
+                    return right_val
 
             # We implement short-circuiting logic for the 'and' operator.
             if op == 'and':
@@ -986,7 +993,9 @@ class Interpreter:
                 if left_val == False:
                     return False
                 else:
-                    return self.eval_node(node.right, env)
+                    right_val = self.eval_node(node.right, env)
+                    self.check_boolean_type(right_val, 'and')
+                    return right_val
 
             # For all other binary operations, we evaluate both sides beforehand.
             left_val  = self.eval_node(node.left, env)
@@ -1013,16 +1022,17 @@ class Interpreter:
                 self.check_two_ints(left_val, right_val, '/')
                 if right_val == 0:
                     raise RuntimeError_("Runtime error: division by zero")
-                # We use simple int() conversion to truncate towards zero, matching C/Java behavior.
-                return int(left_val / right_val)
+                # We use math.trunc() to robustly truncate towards zero, matching C/Java behavior.
+                return math.trunc(left_val / right_val)
 
             # We handle equality checks, keeping them straightforward.
             if op in ('==', '!='):
-                res = (left_val == right_val)
-                if op == '==':
-                    return res
+                if type(left_val) != type(right_val):
+                    res = False
                 else:
-                    return not res
+                    res = (left_val == right_val)
+                if op == '==': return res
+                else: return not res
 
             # We process relational operators, enforcing identical type requirements.
             if op in ('<', '>', '<=', '>='):

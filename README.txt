@@ -1,4 +1,4 @@
-CmpE 260 - Spring 2026, Project 1
+CmpE 260 - Spring 2026, Project 
 Melang Interpreter
 
 Authors

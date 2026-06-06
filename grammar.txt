@@ -1,5 +1,5 @@
 Melang Grammar (BNF)
-CmpE 260 - Spring 2026, Project 1
+CmpE 260 - Spring 2026, Project 
 Mert Seyhan, 2023400213
 Metehan Sarıkaya, 2023400111
 

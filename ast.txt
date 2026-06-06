@@ -1,5 +1,5 @@
 Melang — AST Design Document
-CmpE 260, Spring 2026 — Project 1
+CmpE 260, Spring 2026 — Project 
 Mert Seyhan, 2023400213
 Metehan Sarıkaya, 2023400111
 
@@ -13,9 +13,7 @@ Each node stores only the fields it actually needs, and every class
 has a __repr__ so printing the tree during debugging is actually
 readable.
 
-The tree is produced by the Parser and consumed by the Interpreter's
-eval_node() dispatcher, which routes each node to the correct handler
-via the naming convention  eval_<ClassName>.
+The tree is produced by the Parser and consumed by the Interpreter's eval_node() dispatcher, which routes each node to the correct handler via a chain of if/elif type checks inside a single method.
 
 ======================================================
 Node Types
@@ -106,10 +104,11 @@ LetStmt       name: str           Variable declaration. Introduces a new
                                   scope shadows the previous binding.
                                   Implementation uses a placeholder trick
                                   to support recursive function definitions:
-                                  the name is bound to None first, then the
-                                  value expression is evaluated (so closures
-                                  can capture the frame), then the binding
-                                  is overwritten with the real value.
+                                  the name is bound to a unique placeholder
+                                  sentinel first, then the value expression
+                                  is evaluated (so closures can capture the
+                                  frame), then the binding is overwritten
+                                  with the real value.
 
 AssignStmt    name: str           Assignment to an existing variable.
               value: AST node     Walks up the environment chain to find
