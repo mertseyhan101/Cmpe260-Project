@@ -1,7 +1,7 @@
 Melang Grammar (BNF)
 CmpE 260 - Spring 2026, Project 1
-Mert Yilmaz, 2024XXXXXX
-Metehan Yilmaz, 2024XXXXXX
+Mert Seyhan, 2023400213
+Metehan Sarıkaya, 2023400111
 
 ------------------------------------------------------------------------
 Notes before the grammar
