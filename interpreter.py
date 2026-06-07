@@ -151,10 +151,10 @@ class Lexer:
     def skip_block_comment(self):
         # We handle block comments. Since nesting is not required by the spec,
         # we just advance until we find the closing sequence '*)'.
-        
+
         # '(' is already consumed in tokenize(), so we just consume '*' here
-        self.advance()  
-        
+        self.advance()
+
         while self.pos < len(self.source):
             # We check if the current and next characters form the closing tag.
             if self.current() == '*' and self.peek() == ')':
@@ -164,7 +164,7 @@ class Lexer:
             self.advance()
         # If we reach the end of the file without closing the comment, we throw an error.
         raise LexError(f"Unterminated block comment starting around line {self.line}")
-    
+
     def read_number(self):
         # We read consecutive digits and group them to form an integer.
         start_line, start_col = self.line, self.col
@@ -193,7 +193,7 @@ class Lexer:
                     raise LexError(f"Unknown escape sequence \\{esc} at {self.line}:{self.col}")
             else:
                 chars.append(ch)
-        
+
         # We throw an error if the string is not properly closed before the EOF.
         if self.current() != '"':
             raise LexError(f"Unterminated string literal at {start_line}:{start_col}")
@@ -208,7 +208,7 @@ class Lexer:
         while self.current().isalnum() or self.current() == '_':
             chars.append(self.advance())
         word = ''.join(chars)
-        
+
         # We check if the extracted word is a known keyword; otherwise, it is an identifier.
         tok_type = KEYWORDS.get(word, IDENT)
         if tok_type == TRUE:
@@ -536,7 +536,7 @@ class Parser:
         if self.current().type in op_types:
             op = self.advance().value
             right = self.parse_additive()
-            
+
             # We perform the non-associative check before returning the binary operation node.
             if self.current().type in op_types:
                 tok = self.current()
@@ -544,7 +544,7 @@ class Parser:
                     f"Comparison operators are non-associative. "
                     f"Use parentheses at line {tok.line}, col {tok.col}"
                 )
-                
+
             return BinOp(op, left, right)
         return left
 
@@ -819,7 +819,7 @@ class Interpreter:
         return VOID_VALUE
 
     def eval_node(self, node, env):
-        
+
         # We directly return the value for basic literals.
         if type(node) == NumberLit:
             return node.value
@@ -842,15 +842,17 @@ class Interpreter:
             return find_var_in_env(node.name, env)
 
         elif type(node) == LetStmt:
-            # We first add a dummy placeholder string into the environment.
-            # This helps us support recursive functions easily without issues.
-            add_var_to_env(node.name, _PLACEHOLDER, env)
-            
-            # Now we evaluate the assigned expression safely.
-            evaluated_value = self.eval_node(node.value, env)
-            
-            # Finally, we replace the dummy placeholder with the actually evaluated value.
-            env['bindings'][node.name] = evaluated_value
+            # We use the placeholder trick only when the RHS is a function definition.
+            # This allows recursive functions to reference their own name during evaluation.
+            # For all other expressions, we evaluate the RHS first and then bind the result,
+            # so that patterns like  let x = x + 1  correctly read the previous value of x.
+            if type(node.value) == FunExpr:
+                add_var_to_env(node.name, _PLACEHOLDER, env)
+                evaluated_value = self.eval_node(node.value, env)
+                env['bindings'][node.name] = evaluated_value
+            else:
+                evaluated_value = self.eval_node(node.value, env)
+                add_var_to_env(node.name, evaluated_value, env)
             return VOID_VALUE
 
         elif type(node) == AssignStmt:
@@ -881,7 +883,7 @@ class Interpreter:
             cond_val = self.eval_node(node.cond, env)
             if type(cond_val) != bool:
                 raise RuntimeError_(f"Type error: if condition must be boolean, got {self.get_type_as_string(cond_val)}")
-            
+
             # Depending on the result, we evaluate the appropriate block.
             if cond_val == True:
                 return self.eval_block(node.then_block, env)
@@ -947,13 +949,13 @@ class Interpreter:
             # We evaluate the list and the index to fetch the specified element.
             lst_val = self.eval_node(node.lst, env)
             idx_val = self.eval_node(node.index, env)
-            
+
             # We strictly enforce list and integer type checks.
             if type(lst_val) != list:
                 raise RuntimeError_(f"Type error: indexing requires a list, got {self.get_type_as_string(lst_val)}")
             if type(idx_val) != int:
                 raise RuntimeError_(f"Type error: list index must be an integer, got {self.get_type_as_string(idx_val)}")
-            
+
             # We handle bounds checking to prevent Python's default behavior or crashing.
             if idx_val < 0 or idx_val >= len(lst_val):
                 raise RuntimeError_(f"Index out of range: index {idx_val} for list of length {len(lst_val)}")
@@ -1008,16 +1010,16 @@ class Interpreter:
                 if type(left_val) == str and type(right_val) == str:
                     return left_val + right_val
                 raise RuntimeError_(f"Type error: '+' requires two integers or two strings, got {self.get_type_as_string(left_val)} and {self.get_type_as_string(right_val)}")
-            
+
             # We handle basic arithmetic, ensuring both operands are integers.
             if op == '-':
                 self.check_two_ints(left_val, right_val, '-')
                 return left_val - right_val
-            
+
             if op == '*':
                 self.check_two_ints(left_val, right_val, '*')
                 return left_val * right_val
-            
+
             if op == '/':
                 self.check_two_ints(left_val, right_val, '/')
                 if right_val == 0:
@@ -1114,7 +1116,7 @@ def main():
         sys.exit(1)
 
     filename = args[0]
-    
+
     # We attempt to read the file contents, handling the missing file case cleanly.
     try:
         with open(filename, 'r') as f:
