@@ -1,5 +1,5 @@
-Melang — AST Design Document
-CmpE 260, Spring 2026 — Project 
+Melang AST Design Document
+CmpE 260, Spring 2026 Project 
 Mert Seyhan, 2023400213
 Metehan Sarıkaya, 2023400111
 
@@ -8,7 +8,7 @@ Overview
 ======================================================
 
 Every node in Melang's AST is a plain Python class. We deliberately
-kept them lightweight — no shared base class, no visitor boilerplate.
+kept them lightweight no shared base class, no visitor boilerplate.
 Each node stores only the fields it actually needs, and every class
 has a __repr__ so printing the tree during debugging is actually
 readable.
@@ -24,7 +24,7 @@ Node Types
 Node          Fields              Description
 -----------   -----------------   ----------------------------------------
 NumberLit     value: int          An integer literal. e.g. 42, 0, 100.
-                                  Negative numbers are NOT stored here —
+                                  Negative numbers are NOT stored here 
                                   -3 is parsed as UnaryOp('-', NumberLit(3)).
 
 BoolLit       value: bool         A boolean literal. true → True, false → False.
@@ -38,7 +38,7 @@ StringLit     value: str          A double-quoted string literal (bonus B1).
                                   the value is already a clean Python string.
 
 ListLit       elements: list      A list literal [e1, e2, ...] (bonus B3).
-              of AST nodes        Elements can be any expression — lists are
+              of AST nodes        Elements can be any expression lists are
                                   heterogeneous. The empty list [] has
                                   elements = [].
 
@@ -84,7 +84,7 @@ CallExpr      func: AST node      Function call. func evaluates to a Closure
               AST nodes           args are evaluated left-to-right before
                                   the call (call-by-value).
                                   Also used for built-in calls like
-                                  length(...) and append(...) — the parser
+                                  length(...) and append(...) the parser
                                   desugars these into CallExpr nodes with
                                   special Identifier names (__length__,
                                   __append__).
@@ -124,7 +124,7 @@ PrintStmt     expr: AST node      Built-in print statement (not a function).
 
 WhileStmt     cond: AST node      While loop (bonus B2). Repeatedly evaluates
               body: Block         cond; while true, evaluates body.
-                                  While is a statement, not an expression —
+                                  While is a statement, not an expression 
                                   it produces no value.
 
 ── STRUCTURE ─────────────────────────────────────────
